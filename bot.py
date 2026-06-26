@@ -1,5 +1,7 @@
 import logging
 import os
+import threading
+from flask import Flask
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -11,6 +13,30 @@ from telegram.ext import (
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import time
 import pytz
+
+# ─────────────────────────────────────────
+# FLASK KEEP-ALIVE SERVER
+# Render free tier requires a web server
+# UptimeRobot pings this to prevent sleep
+# ─────────────────────────────────────────
+flask_app = Flask(__name__)
+
+@flask_app.route("/")
+def home():
+    return "PilotHQ Bot is running! 🚀"
+
+@flask_app.route("/health")
+def health():
+    return "OK", 200
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    flask_app.run(host="0.0.0.0", port=port)
+
+def keep_alive():
+    t = threading.Thread(target=run_flask)
+    t.daemon = True
+    t.start()
 
 # ─────────────────────────────────────────
 # CONFIGURATION — swap these values
@@ -487,6 +513,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # MAIN
 # ─────────────────────────────────────────
 def main():
+    # Start Flask server in background thread
+    keep_alive()
+
     app = Application.builder().token(BOT_TOKEN).build()
 
     # Handlers
@@ -511,3 +540,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
